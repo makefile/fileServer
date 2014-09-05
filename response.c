@@ -1,4 +1,5 @@
 #include "my_httpd.h"
+char *formatText(char *text);
 /*
    以html响应客户端的请求，若请求是目录，则列出目录信息，若是文件，则将文件内容传送给客户端
    */
@@ -28,7 +29,7 @@ void GiveResponse(FILE *client_sock,char *path){
 	char Filename[MAXPATH];
 	DIR *dir;
 	int fd,len,ret,i=0;
-	FILE *fp;
+	//FILE *fp;
 	char *p,*realpath,*realFilename,*nport;
 	struct passwd *p_passwd;
 	struct group *p_group;
@@ -71,18 +72,22 @@ void GiveResponse(FILE *client_sock,char *path){
 	if(S_ISREG(fileinfo.st_mode)){//send file content
 		fd=open(realpath,O_RDONLY);
 		len=lseek(fd,0,SEEK_END);
-		p=(char *)malloc(len+1);
-		bzero(p,len+1);
+		p=(char *)malloc(len+2048);//plus 2048 is due to i when display the text,need extra space:'<' changes to &#60;
+		bzero(p,len+2048);
 		lseek(fd,0,SEEK_SET);
 		ret=read(fd,p,len);//一次性读取文件，对于大文件会出错，有时间再改，分批读取和传送文件
+		char logmsg[30];
 		if(ret<0) info("read fail");
+		else {
+			sprintf(logmsg,"read len=%d,the real len is %d\n",ret,len);
+			info(logmsg);
+		}
 		close(fd);
 		if(strcmp("c",postfix(path))==0
 				||strcmp("txt",postfix(path))==0){
-		//	fp=fopen(path,"r");
-		//	fread(p,ret,1,fp);
-			fprintf(client_sock,"HTTP/1.1 200 OK\r\nServer:Test http server\r\nConnection:close\r\n\r\n<html lang=\"zh-cn\"><html><head><meta charset=\"utf-8\"><title>content of %s</title></head><body><font size=+4>康哥's file</font><br><hr width=\"100%%\"><br><center>%s</body></html>",path,p);
-			
+		//<的转义序列为&lt; or &#60;,> &gt; &#62;,&的转义为&amp; or &#38; 不转义的话<stdio.h>被当作标签，但不显示
+			fprintf(client_sock,"HTTP/1.1 200 OK\r\nServer:Test http server\r\nConnection:close\r\n\r\n<html lang=\"zh-cn\"><html><head><meta charset=\"utf-8\"><title>content of %s</title></head><body><font size=+4>康哥's file</font><br><hr width=\"100%%\"><br>%s</body></html>"//<center>
+					,path,formatText(p));
 		}else{
 			fprintf(client_sock,"HTTP/1.1 200 OK\r\nServer:Test http server\r\nConnection:keep-alive\r\nContent-type:application/*\r\nContent-Length:%d\r\n\r\n",len);
 			fwrite(p,len,1,client_sock);//send file content
@@ -98,26 +103,21 @@ void GiveResponse(FILE *client_sock,char *path){
 			fprintf(client_sock,"</table><font color=\"CC0000\" size=+2>%s</font></body></html>",strerror(errno));
 			return ;
 		}
+		fprintf(client_sock,"<td><a href=\"http://%s%s%s\">..parent..</a></td><br>",ip,atoi(port)==80?"":nport,dir_up(path));
 		while((dirent=readdir(dir))!=NULL){
 			if(strcmp(path,"/")==0)//website root,no display parent fold
 				sprintf(Filename,"/%s",dirent->d_name);
 				//create web absolute dir
 			else sprintf(Filename,"%s/%s",path,dirent->d_name);
-			//if(strcmp(dirent->d_name,".")==0) continue;
-			//当前目录
-			if(dirent->d_name[0]=='.'
-					&&strcmp(dirent->d_name,"..")!=0) 
-				continue;
-			//隐藏文件不列出
+			if(dirent->d_name[0]=='.')
+				continue;//隐藏文件不列出,以及..和.
 			fprintf(client_sock,"<tr>");
 			len=strlen(home_dir)+strlen(Filename)+1;
 			realFilename=malloc(len+1);
 			bzero(realFilename,len+1);
 			sprintf(realFilename,"%s/%s",home_dir,Filename);//主机上的绝对路径
 			if(stat(realFilename,&fileinfo)==0){
-				if(strcmp(dirent->d_name,"..")==0)
-					fprintf(client_sock,"<td><a href=\"http://%s%s%s\">..parent..</a></td><br>",ip,atoi(port)==80?"":nport,dir_up(path));
-				else fprintf(client_sock,"<td><a href=\"http://%s%s%s\">%s</a></td><br>",ip,atoi(port)==80?"":nport,Filename,dirent->d_name);
+				 fprintf(client_sock,"<td><a href=\"http://%s%s%s\">%s</a></td><br>",ip,atoi(port)==80?"":nport,Filename,dirent->d_name);
 				//p_time=ctime(&info.st_mtime);
 				p_passwd=getpwuid(fileinfo.st_uid);//文件拥有者
 				p_group=getgrgid(fileinfo.st_gid);//拥有者组
@@ -175,3 +175,31 @@ int get_addr(char *str){
 	return 0;
 }
 	
+char *formatText(char *text){
+	int i=0,j=0;
+	char *ft=malloc(strlen(text)+2048);
+	//it is big bug use sizeof(text),because big file will overflow
+	memset(ft,0,strlen(ft));
+	//the size of space ,use strcpy +1,not sizeof.
+	while(text[i]!='\0'){
+		if(text[i]=='<')
+			strncpy(ft+j,"&#60;",5);
+		else if(text[i]=='>')
+			strncpy(ft+j,"&#62;",5);
+		else if(text[i]=='&')
+			strncpy(ft+j,"&#38;",5);
+		else if(text[i]=='\n')
+			strncpy(ft+j,"</br>",5);
+		else {
+			ft[j]=text[i];
+			j-=4;
+		}
+		i++;
+		j+=5;
+	}
+	strcpy(text,ft);
+	free(ft);
+	ft=NULL;
+	return text;
+}
+
