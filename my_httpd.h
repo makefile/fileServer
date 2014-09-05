@@ -22,6 +22,7 @@
 #define MAXPATH 128
 #define MAXBUF 1024
 #define NOFILE 8
+#define MAX_FILE_SIZE 4096000//less than 4MB,4096*1024
 char buffer[1025];
 extern void init_daemon(const char *program,int facility);
 extern int get_arg(char *cmd);
@@ -30,3 +31,5 @@ extern void GiveResponse(FILE *client_sock,char *path);
 extern char file_type(mode_t st_mode);
 extern char* dir_up(char *dirpath);
 extern int get_addr(char *str);
+extern void uploadFile(int fd,char *dir,int len);
+extern int hexstr2int(char,char);

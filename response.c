@@ -1,28 +1,11 @@
 #include "my_httpd.h"
 char *formatText(char *text);
+//int hexstr2int(char x,char y);
+char *postfix(char *file);
+
 /*
    以html响应客户端的请求，若请求是目录，则列出目录信息，若是文件，则将文件内容传送给客户端
    */
-int hexstr2int(char x,char y){
-	int ret=16776960,i,tmp=0;//0xffff00
-	char a[]={x,y};
-	for(i=0;i<2;i++){
-		if(a[i]>='0'&&a[i]<='9') tmp=tmp*16+a[i]-'0';
-		else tmp=tmp*16+a[i]-55;//-65+10 ascii:A65,a97
-		//Path中的中文编码是大写的，如'传':%E4%BC%A0,实际为16进制0xFFFFE4...
-	}
-	ret=ret+tmp;
-	return ret;
-}
-/*返回文件的后缀名，此处仅简单判断最后的.后的字符，因此不适用于.tar.gz等以及后缀名与属性不符的情形，后续改进 */
-char *postfix(char *file){
-	int i=0,lastIndex=0;
-	while(file[i]!='\0'){
-		if(file[i]=='.') lastIndex=i;
-		i++;
-	}
-	return &file[lastIndex+1];
-}
 void GiveResponse(FILE *client_sock,char *path){
 	struct dirent *dirent;
 	struct stat fileinfo;
@@ -35,6 +18,11 @@ void GiveResponse(FILE *client_sock,char *path){
 	struct group *p_group;
 	char chinese[128];
 	extern char home_dir[],ip[],port[];
+	//目前未容许选择可上传到的路径，统一放在/upload目录下
+	char uploadHtml[]="<form method=\"POST\" action=\"/upload\" enctype=\"multipart/form-data\">上传文件"
+		"<input name=\"image\" type=\"file\" />"
+		"<input type=\"submit\" value=\"Upload\" /></form>";
+	//the action will exist in the head:POST /dir HTTP...
 	//将中文名还原成主机能够识别的编码
 	for(ret=0,len=strlen(path);ret<len;ret++){
 		if(path[ret]=='%') {
@@ -78,10 +66,10 @@ void GiveResponse(FILE *client_sock,char *path){
 		ret=read(fd,p,len);//一次性读取文件，对于大文件会出错，有时间再改，分批读取和传送文件
 		char logmsg[30];
 		if(ret<0) info("read fail");
-		else {
+		/*else {
 			sprintf(logmsg,"read len=%d,the real len is %d\n",ret,len);
 			info(logmsg);
-		}
+		}*/
 		close(fd);
 		if(strcmp("c",postfix(path))==0
 				||strcmp("txt",postfix(path))==0){
@@ -90,20 +78,22 @@ void GiveResponse(FILE *client_sock,char *path){
 					,path,formatText(p));
 		}else{
 			fprintf(client_sock,"HTTP/1.1 200 OK\r\nServer:Test http server\r\nConnection:keep-alive\r\nContent-type:application/*\r\nContent-Length:%d\r\n\r\n",len);
+			//for transport file,so keep-alive
 			fwrite(p,len,1,client_sock);//send file content
 		}
 		free(p);
 	}else if(S_ISDIR(fileinfo.st_mode)){
 		dir=opendir(realpath);
-		fprintf(client_sock,"HTTP/1.1 200 OK\r\nServer:Test http server\r\nConnection:close\r\n\r\n<html lang=\"zh-cn\"><html><head><meta charset=\"utf-8\"><title>%s</title></head><body><font size=+4>康哥's file</font><br><hr width=\"100%%\"><br><center>"
-			"<table border cols=3 width=\"100%%\">",path);
+		fprintf(client_sock,"HTTP/1.1 200 OK\r\nServer:Test http server\r\nConnection:close\r\n\r\n<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\"><html lang=\"zh-cn\"><html><head><meta charset=\"utf-8\"><title>%s</title></head><body><font size=+4>康哥's file</font><br><hr width=\"100%%\"><br>%s<center>"
+			"<table border cols=3 width=\"100%%\">",path
+				,uploadHtml);
 		fprintf(client_sock,"<caption><font size=+3> Directory %s</font></caption>\n",path);//表格头信息，便于显示
 		fprintf(client_sock,"<tr><td>name</td><td>type</td><td>owner</td><td>group</td><td>size</td><td>modify time</td></tr>\n");
 		if(dir==NULL){//打开目录失败
 			fprintf(client_sock,"</table><font color=\"CC0000\" size=+2>%s</font></body></html>",strerror(errno));
 			return ;
 		}
-		fprintf(client_sock,"<td><a href=\"http://%s%s%s\">..parent..</a></td><br>",ip,atoi(port)==80?"":nport,dir_up(path));
+		fprintf(client_sock,"<td><a href=\"http://%s%s%s\">..parent..</a></td><br>",ip,atoi(port)==80?"":nport,dir_up(path));//go to parent dir
 		while((dirent=readdir(dir))!=NULL){
 			if(strcmp(path,"/")==0)//website root,no display parent fold
 				sprintf(Filename,"/%s",dirent->d_name);
@@ -203,3 +193,23 @@ char *formatText(char *text){
 	return text;
 }
 
+int hexstr2int(char x,char y){
+	int ret=16776960,i,tmp=0;//0xffff00
+	char a[]={x,y};
+	for(i=0;i<2;i++){
+		if(a[i]>='0'&&a[i]<='9') tmp=tmp*16+a[i]-'0';
+		else tmp=tmp*16+a[i]-55;//-65+10 ascii:A65,a97
+		//Path中的中文编码是大写的，如'传':%E4%BC%A0,实际为16进制0xFFFFE4...
+	}
+	ret=ret+tmp;
+	return ret;
+}
+/*返回文件的后缀名，此处仅简单判断最后的.后的字符，因此不适用于.tar.gz等以及后缀名与属性不符的情形，后续改进 */
+char *postfix(char *file){
+	int i=0,lastIndex=0;
+	while(file[i]!='\0'){
+		if(file[i]=='.') lastIndex=i;
+		i++;
+	}
+	return &file[lastIndex+1];
+}

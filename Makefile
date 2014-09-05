@@ -1,10 +1,10 @@
 CC	= gcc 
-CFLAGS = -Wall 
-SOURCES	= my_httpd.c my_httpd.h response.c httpd_util.c
+CFLAGS = -Wall #-g
+SOURCES	= my_httpd.c my_httpd.h response.c upload.c httpd_util.c
 OBJECTS	= ${SOURCES:.c=.o}
 
 OUT	= myHttpd
-#LIBS	= -lungif -L/usr/X11R6/lib -ljpeg -lpng
+#LIBS	= -lungif -L/usr/X11R6/lib 
 
 all: $(OUT)
 	@echo Build DONE.

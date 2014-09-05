@@ -27,7 +27,8 @@ void init_daemon(const char *pname,int facility){
 	return ;
 }
 void info(char *msg){
-	syslog(LOG_INFO,"%s",msg);
+	//syslog(LOG_INFO,"%s",msg);
+	fprintf(stderr,"%s",msg);
 }
 /*读取配置文件/etc/my_httpd.conf,进行字符串匹配*/
 int get_arg(char *cmd){
@@ -35,7 +36,7 @@ int get_arg(char *cmd){
 	char buf[1024];
 	size_t bytes_read;
 	char * match;
-	extern char ip[],home_dir[],port[],back[];
+	extern char ip[],home_dir[],upload_root[],port[],back[];
 	fp=fopen("/home/fyk/my_httpd/my_httpd.conf","r");//etc/my_httpd.conf
 	bytes_read=fread(buf,1,sizeof(buf),fp);//file size
 	fclose(fp);
@@ -48,6 +49,13 @@ int get_arg(char *cmd){
 		bytes_read=sscanf(match,"home_dir=%s",home_dir);
 		if(home_dir[bytes_read-9]=='/')
 			home_dir[bytes_read-9]='\0';
+		return bytes_read;
+	}else if(!strncmp(cmd,"upload_dir",10)){
+		match=strstr(buf,"upload_dir=");
+		if(match==NULL) return 0;
+		bytes_read=sscanf(match,"upload_dir=%s",upload_root);
+		if(upload_root[bytes_read-11]=='/')
+			upload_root[bytes_read-11]='\0';
 		return bytes_read;
 	}else if(!strncmp(cmd,"port",4)){
 		match=strstr(buf,"port=");
