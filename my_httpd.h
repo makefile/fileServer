@@ -33,3 +33,4 @@ extern char* dir_up(char *dirpath);
 extern int get_addr(char *str);
 extern void uploadFile(int fd,char *dir,int len);
 extern int hexstr2int(char,char);
+extern int get_line(int sock,char*buf,int size);
