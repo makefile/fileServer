@@ -71,11 +71,19 @@ void GiveResponse(FILE *client_sock,char *path){
 			info(logmsg);
 		}*/
 		close(fd);
-		if(strcmp("c",postfix(path))==0
-				||strcmp("txt",postfix(path))==0){
+		char *type=postfix(path);
+		if(strcmp("c",type)==0
+				||strcmp("txt",type)==0){
 		//<的转义序列为&lt; or &#60;,> &gt; &#62;,&的转义为&amp; or &#38; 不转义的话<stdio.h>被当作标签，但不显示
 			fprintf(client_sock,"HTTP/1.1 200 OK\r\nServer:Test http server\r\nConnection:close\r\n\r\n<html lang=\"zh-cn\"><html><head><meta charset=\"utf-8\"><title>content of %s</title></head><body><font size=+4>康哥's file</font><br><hr width=\"100%%\"><br>%s</body></html>"//<center>
 					,path,formatText(p));
+		}else if(strcmp("jpg",type)==0||strcmp("png",type)==0){
+			fprintf(client_sock,"HTTP/1.1 200 OK\r\nServer:Test http server\r\nConnection:keep-alive\r\nContent-type:image\r\nContent-Length: %d\r\n\r\n",len);
+			fwrite(p,len,1,client_sock);//send file content
+			
+		}else if(strcmp("html",type)==0){
+			fprintf(client_sock,"HTTP/1.1 200 OK\r\nServer:Test http server\r\nConnection:close\r\n\r\n");
+			fwrite(p,len,1,client_sock);//send file content
 		}else{
 			fprintf(client_sock,"HTTP/1.1 200 OK\r\nServer:Test http server\r\nConnection:keep-alive\r\nContent-type:application/*\r\nContent-Length:%d\r\n\r\n",len);
 			//for transport file,so keep-alive

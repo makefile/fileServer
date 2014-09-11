@@ -6,7 +6,7 @@ int main(int argc,char **argv){
 	struct sockaddr_in addr;
 	int sock_fd;
 	unsigned int addrlen;
-	//	init_daemon(argv[0],LOG_INFO);//运行守护进程
+	init_daemon(argv[0],LOG_INFO);//运行守护进程
 	if(get_arg("home_dir")==0)//从配置文件读取参数
 		sprintf(home_dir,"%s","/tmp");
 	if(get_arg("upload_dir")==0) 

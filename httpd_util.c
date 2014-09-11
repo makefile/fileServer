@@ -27,8 +27,8 @@ void init_daemon(const char *pname,int facility){
 	return ;
 }
 void info(char *msg){
-	//syslog(LOG_INFO,"%s",msg);
-	fprintf(stderr,"%s",msg);
+	syslog(LOG_INFO,"%s",msg);
+	//fprintf(stderr,"%s",msg);
 }
 /*读取配置文件/etc/my_httpd.conf,进行字符串匹配*/
 int get_arg(char *cmd){
